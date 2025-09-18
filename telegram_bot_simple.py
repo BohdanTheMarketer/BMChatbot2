@@ -8,6 +8,8 @@ import requests
 import json
 import time
 import logging
+import fcntl
+import os
 from datetime import datetime, timedelta
 from data_handler import DataHandler
 from chatgpt_handler import ChatGPTHandler
@@ -33,6 +35,33 @@ class SimpleTelegramBot:
         self.user_sessions = {}
         self.user_last_search_time = {}  # Track when each user last searched (24h limit)
         self.last_update_id = 0
+        self.processed_updates = set()  # Track processed updates to prevent duplicates
+        
+        # File lock to prevent multiple bot instances
+        self.lock_file = "/tmp/bmchatbot.lock"
+        self.lock_fd = None
+        self._acquire_lock()
+    
+    def _acquire_lock(self):
+        """Acquire file lock to prevent multiple bot instances"""
+        try:
+            self.lock_fd = os.open(self.lock_file, os.O_CREAT | os.O_WRONLY | os.O_TRUNC)
+            fcntl.flock(self.lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            logger.info("🔒 File lock acquired - single bot instance ensured")
+        except (OSError, IOError):
+            logger.error("❌ Another bot instance is already running!")
+            raise SystemExit("Bot instance already running")
+    
+    def _cleanup_lock(self):
+        """Release file lock"""
+        try:
+            if self.lock_fd:
+                fcntl.flock(self.lock_fd, fcntl.LOCK_UN)
+                os.close(self.lock_fd)
+                os.unlink(self.lock_file)
+                logger.info("🔓 File lock released")
+        except Exception as e:
+            logger.error(f"Error releasing lock: {e}")
     
     def get_user_session(self, user_id: int) -> ChatGPTHandler:
         """Get or create user session"""
@@ -494,6 +523,7 @@ class SimpleTelegramBot:
             return
         
         logger.info("🔄 Starting polling for messages...")
+        logger.info("🛡️ Duplicate message protection enabled")
         
         while True:
             try:
@@ -509,7 +539,17 @@ class SimpleTelegramBot:
                 
                 # Process each update
                 for update in updates:
-                    self.last_update_id = update["update_id"]
+                    update_id = update["update_id"]
+                    
+                    # Skip if we already processed this update
+                    if update_id in self.processed_updates:
+                        logger.info(f"🛡️ Skipping duplicate update {update_id}")
+                        self.last_update_id = update_id
+                        continue
+                    
+                    # Mark as processed and process
+                    self.processed_updates.add(update_id)
+                    self.last_update_id = update_id
                     self.process_update(update)
                 
                 # Small delay to avoid overwhelming the API
@@ -521,11 +561,20 @@ class SimpleTelegramBot:
             except Exception as e:
                 logger.error(f"Error in main loop: {e}")
                 time.sleep(5)
+        
+        # Cleanup on exit
+        self._cleanup_lock()
 
 def main():
     """Start the bot"""
-    bot = SimpleTelegramBot()
-    bot.run()
+    try:
+        bot = SimpleTelegramBot()
+        bot.run()
+    except SystemExit:
+        logger.info("🚫 Bot startup blocked - another instance is running")
+    except Exception as e:
+        logger.error(f"❌ Bot startup failed: {e}")
+        raise
 
 if __name__ == '__main__':
     main()
