@@ -1,0 +1,32 @@
+{
+  "name": "business-match-bot",
+  "description": "Telegram bot for business networking and professional matching",
+  "repository": "https://github.com/your-username/business-match-bot",
+  "keywords": ["telegram", "bot", "business", "networking"],
+  "env": {
+    "TELEGRAM_BOT_TOKEN": {
+      "description": "Your Telegram bot token",
+      "required": true
+    },
+    "OPENAI_API_KEY": {
+      "description": "Your OpenAI API key",
+      "required": true
+    },
+    "ELEVENLABS_API_KEY": {
+      "description": "Your ElevenLabs API key",
+      "required": true
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "free"
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ]
+}
+

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block page_title %}Користувачі{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-users"></i> Список користувачів ({{ users|length }})
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover" id="usersTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Користувач</th>
+                        <th>Реєстрація</th>
+                        <th>Остання активність</th>
+                        <th>Пошуків</th>
+                        <th>Повідомлень</th>
+                        <th>Дії</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            <code>{{ user.user_id }}</code>
+                        </td>
+                        <td>
+                            <div>
+                                <strong>
+                                    {% if user.first_name %}
+                                        {{ user.first_name }}
+                                        {% if user.last_name %}{{ user.last_name }}{% endif %}
+                                    {% else %}
+                                        {{ user.username or 'Без імені' }}
+                                    {% endif %}
+                                </strong>
+                                {% if user.username %}
+                                    <br>
+                                    <small class="text-muted">@{{ user.username }}</small>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <small>{{ user.created_at[:16] }}</small>
+                        </td>
+                        <td>
+                            <small>{{ user.last_activity[:16] }}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary">{{ user.total_searches }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ user.total_messages }}</span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('user_detail', user_id=user.user_id) }}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i> Деталі
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Simple search functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const table = document.getElementById('usersTable');
+        const rows = table.getElementsByTagName('tr');
+        
+        // Add search input
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.className = 'form-control mb-3';
+        searchInput.placeholder = 'Пошук користувачів...';
+        
+        table.parentNode.insertBefore(searchInput, table);
+        
+        searchInput.addEventListener('keyup', function() {
+            const filter = this.value.toLowerCase();
+            
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                const text = row.textContent.toLowerCase();
+                
+                if (text.indexOf(filter) > -1) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}
+
+
